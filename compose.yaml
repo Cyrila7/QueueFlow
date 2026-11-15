@@ -1,0 +1,29 @@
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: queueflow-postgres
+    environment:
+      POSTGRES_DB: queueflow
+      POSTGRES_USER: queueflow
+      POSTGRES_PASSWORD: queueflow_dev
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: queueflow-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: queueflow
+      RABBITMQ_DEFAULT_PASS: queueflow_dev
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
