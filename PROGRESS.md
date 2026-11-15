@@ -17,14 +17,17 @@ Initial commit: `76803d4`.
 - Git repository initialized; initial commit created and pushed to GitHub.
 - Codex installed and repository inspection completed.
 - Project instructions and progress documentation created.
+- Milestone 1 verified: Spring Boot connects to PostgreSQL and RabbitMQ with environment-overridable local settings; Hibernate and Actuator configured.
 
-Infrastructure/runtime and Git history completion claims above reflect the developer-provided status; this documentation task did not independently rerun those checks.
+Original setup and Git history claims reflect the developer-provided status. For milestone 1, both existing containers were independently confirmed running with `docker compose ps`.
 
 ## Current implementation
 
-The repository contains a Spring Boot application entry point, an application-name property, and a scaffold `contextLoads()` test. Maven declares Actuator, AMQP, JPA, validation, Spring MVC, PostgreSQL, and corresponding test dependencies.
+The repository contains a Spring Boot application entry point and a scaffold `contextLoads()` test. Application properties configure PostgreSQL and RabbitMQ with local defaults and environment variable overrides, Hibernate `ddl-auto=update`, `open-in-view=false`, and Actuator health/info exposure with component status visibility. Maven declares Actuator, AMQP, JPA, validation, Spring MVC, PostgreSQL, and corresponding test dependencies; no dependencies were added for milestone 1.
 
-Not yet implemented: application database/RabbitMQ connection configuration; job entity, enum, repository, service, or controller; RabbitMQ queues, producers, or consumers; retries, backoff, idempotency, or DLQ; transactional outbox; custom metrics; frontend; CI; application containerization.
+Not yet implemented: job entity, enum, repository, service, or controller; RabbitMQ queues, producers, or consumers; retries, backoff, idempotency, or DLQ; transactional outbox; custom metrics; frontend; CI; application containerization.
+
+Verification: `./mvnw test` passed (1 test, 0 failures/errors/skips). `./mvnw -B spring-boot:run` started successfully. `/actuator/health` returned HTTP 200 with overall, `db`, and `rabbit` status `UP`; `/actuator/info` returned HTTP 200 with `{}` (no custom info configured). The verification application was stopped afterward; existing containers were left running. Maven required access outside the sandbox to its cache and local services. Tests emitted non-failing Mockito/Java dynamic-agent warnings.
 
 ## Local infrastructure
 
@@ -38,7 +41,7 @@ Not yet implemented: application database/RabbitMQ connection configuration; job
 
 ## Remaining milestones
 
-1. [ ] Connect Spring Boot to PostgreSQL and RabbitMQ.
+1. [x] Connect Spring Boot to PostgreSQL and RabbitMQ.
 2. [ ] Implement `Job`, `JobStatus`, and the repository.
 3. [ ] Implement the core REST API.
 4. [ ] Implement RabbitMQ asynchronous processing.
@@ -51,4 +54,4 @@ Not yet implemented: application database/RabbitMQ connection configuration; job
 11. [ ] Complete README and architecture documentation.
 12. [ ] Consider optional AWS deployment after the core MVP.
 
-Next feature, when explicitly requested: connect Spring Boot to PostgreSQL and RabbitMQ. No application implementation was started as part of creating these documents; no builds, tests, or containers were run.
+Next feature, when explicitly requested: implement `Job`, `JobStatus`, and the repository.
