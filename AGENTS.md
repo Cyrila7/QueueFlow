@@ -60,6 +60,7 @@ Implement basic submission and RabbitMQ integration first. Then introduce a ligh
 
 - Use conventional Spring Boot controller, service, repository, and entity layers.
 - Prefer constructor injection.
+- Use explicit Java types instead of `var` for readability and learning.
 - Avoid unnecessary abstractions and design patterns.
 - Explain why any new dependency is needed.
 - Do not introduce Lombok unless explicitly requested.
