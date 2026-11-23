@@ -32,7 +32,7 @@ class JobServiceTests {
                 new SQLException("duplicate", "23505"), "uk_jobs_idempotency_key");
         when(repository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate", violation));
 
-        assertThat(new JobService(repository, manager).submitJob(request).created()).isFalse();
+        assertThat(new JobService(repository, manager, mock(org.springframework.context.ApplicationEventPublisher.class)).submitJob(request).created()).isFalse();
 
         var order = inOrder(manager, repository);
         order.verify(manager).getTransaction(any());
@@ -55,7 +55,7 @@ class JobServiceTests {
         var failure = new DataIntegrityViolationException("other constraint", violation);
         when(repository.saveAndFlush(any())).thenThrow(failure);
 
-        assertThatThrownBy(() -> new JobService(repository, manager)
+        assertThatThrownBy(() -> new JobService(repository, manager, mock(org.springframework.context.ApplicationEventPublisher.class))
                 .submitJob(new CreateJobRequest(JobType.GENERATE_REPORT, "{}", "key")))
                 .isSameAs(failure);
         verify(repository, times(1)).findByIdempotencyKey("key");

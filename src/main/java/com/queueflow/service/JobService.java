@@ -1,6 +1,8 @@
 package com.queueflow.service;
 
 import java.util.List;
+import com.queueflow.messaging.JobProducer.JobSubmitted;
+import org.springframework.context.ApplicationEventPublisher;
 import java.util.Optional;
 import com.queueflow.dto.CreateJobRequest;
 import com.queueflow.dto.JobResponse;
@@ -21,9 +23,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class JobService {
     private static final Logger log = LoggerFactory.getLogger(JobService.class);
     private final JobRepository repository;
+    private final ApplicationEventPublisher events;
     private final TransactionTemplate transactions;
 
-    public JobService(JobRepository repository, PlatformTransactionManager transactionManager) {
+    public JobService(JobRepository repository, PlatformTransactionManager transactionManager, ApplicationEventPublisher events) {
+        this.events = events;
         this.repository = repository;
         transactions = new TransactionTemplate(transactionManager);
         // Keep submission separate from any caller's transaction so a failed insert can roll back independently.
@@ -43,6 +47,8 @@ public class JobService {
                 // Send the insert to PostgreSQL now so duplicate-key errors surface inside this transaction.
                 Job job = repository.saveAndFlush(
                         new Job(request.type(), request.payload(), request.idempotencyKey()));
+                // The RabbitMQ producer handles this event only after the database commit succeeds.
+                events.publishEvent(new JobSubmitted(job.getId()));
                 log.info("Created job {}", job.getId());
                 return new Submission(JobResponse.from(job), true);
             });

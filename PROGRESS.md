@@ -1,6 +1,6 @@
 # QueueFlow progress
 
-Last updated: November 16, 2026.
+Last updated: November 23, 2026.
 
 Target: resume-ready MVP by December 1, 2026, without sacrificing understanding or correctness.
 
@@ -31,7 +31,7 @@ The `entity` package contains `Job`, `JobStatus`, and `JobType`; the `repository
 
 Milestone 2 verification: `./mvnw -B test` passed all 4 tests (3 repository integration tests and the existing context test), with 0 failures/errors/skips. Tests verified persistence and retrieval, defaults, string enum storage, timestamp updates, and duplicate-key rejection against local PostgreSQL. Direct `psql` inspection confirmed Hibernate created `public.jobs` with all eight columns, identity primary key, timestamp columns, enum check constraints, and `uk_jobs_idempotency_key`. Test transactions rolled back; the table contained 0 rows afterward. These tests require an available PostgreSQL instance using the configured connection settings; identity sequence values may advance despite rollback. Non-failing Mockito/Java agent warnings remain.
 
-Milestone 3 adds `CreateJobRequest` and `JobResponse` records, `JobService`, and `JobController`. POST /api/jobs returns 202 for creation, 200 for an identical duplicate, and 409 for reuse with different type or exact payload text. GET /api/jobs/{id} returns a job or 404; GET /api/jobs returns all jobs. Invalid requests return 400. Clients cannot set server-managed fields through the request DTO. New jobs remain PENDING with zero attempts.
+Milestone 3 adds `CreateJobRequest` and `JobResponse` records, `JobService`, and `JobController`. POST /api/jobs returns 202 for creation, 200 for an identical duplicate, and 409 for reuse with different type or exact payload text. GET /api/jobs/{id} returns a job or 404; GET /api/jobs returns all jobs. Invalid requests return 400. Clients cannot set server-managed fields through the request DTO. New submissions return a PENDING snapshot with zero attempts; milestone 4 now processes jobs asynchronously.
 
 Submission runs in an independent transaction. If PostgreSQL reports SQLSTATE 23505 for the named idempotency-key constraint, the failed insert transaction rolls back before a fresh transaction reads and compares the existing job. Other database failures are rethrown. No dependencies were added.
 
@@ -41,7 +41,7 @@ Limitations: tests require local PostgreSQL; listing is currently unpaginated; p
 
 Milestone 3 readability refactor verified on November 16, 2026: replaced `var` in JobService/JobController with explicit types, simplified GET methods to call repository methods directly, and added beginner-friendly comments explaining submission transactions, flushing, rollback before recovery, and constraint checks. Submission transaction boundaries and API behavior are preserved. AGENTS.md now prefers explicit Java types. `./mvnw -B test` passed all 10 existing tests with 0 failures/errors/skips.
 
-Not yet implemented: RabbitMQ queues, producers, or consumers; retries, backoff, idempotent processing, or DLQ; transactional outbox; custom metrics; frontend; CI; application containerization.
+Not yet implemented: retries, backoff, robust idempotent processing, or DLQ; transactional outbox; custom metrics; frontend; CI; application containerization.
 
 Verification: `./mvnw test` passed (1 test, 0 failures/errors/skips). `./mvnw -B spring-boot:run` started successfully. `/actuator/health` returned HTTP 200 with overall, `db`, and `rabbit` status `UP`; `/actuator/info` returned HTTP 200 with `{}` (no custom info configured). The verification application was stopped afterward; existing containers were left running. Maven required access outside the sandbox to its cache and local services. Tests emitted non-failing Mockito/Java dynamic-agent warnings.
 
@@ -60,7 +60,7 @@ Verification: `./mvnw test` passed (1 test, 0 failures/errors/skips). `./mvnw -B
 1. [x] Connect Spring Boot to PostgreSQL and RabbitMQ.
 2. [x] Implement `Job`, `JobStatus`, `JobType`, and the repository.
 3. [x] Implement the core REST API.
-4. [ ] Implement RabbitMQ asynchronous processing.
+4. [x] Implement RabbitMQ asynchronous processing.
 5. [ ] Implement retries, backoff, idempotency, and DLQ.
 6. [ ] Implement the transactional outbox.
 7. [ ] Add monitoring and automated tests (test important behavior throughout development).
@@ -70,4 +70,16 @@ Verification: `./mvnw test` passed (1 test, 0 failures/errors/skips). `./mvnw -B
 11. [ ] Complete README and architecture documentation.
 12. [ ] Consider optional AWS deployment after the core MVP.
 
-Next feature, when explicitly requested: implement RabbitMQ asynchronous processing.
+Next feature, when explicitly requested: implement retries, backoff, idempotency, and DLQ.
+
+## Milestone 4 — verified November 23, 2026
+
+- RabbitConfig declares the durable queue queueflow.jobs (queue name override supports isolated integration tests).
+- JobService raises a JobSubmitted event only for a new job. JobProducer handles it AFTER_COMMIT and publishes only the job ID as text through RabbitTemplate. Duplicate submissions do not republish. Existing independent submission and recovery transactions are preserved.
+- JobWorker consumes IDs with manual acknowledgments. It commits PROCESSING and increments attemptCount once, logs simulated work, then commits COMPLETED before acknowledging. Missing or non-PENDING jobs are skipped and acknowledged.
+- Runtime failures are logged and rejected without requeueing; no retries, DLQ, outbox, Redis, or frontend were added. A failure after PROCESSING may leave that status in the database. Concurrent worker claiming and crash recovery are not guaranteed yet.
+- Spring AMQP was already available; its duplicate pom.xml declaration was removed. No new dependencies were required.
+- Existing API integration tests mock the producer and disable consumption to preserve deterministic API assertions. New messaging integration tests use a UUID-named queue and clean up only that queue and their own jobs.
+- Verification: ./mvnw -B clean test passed all 13 tests (0 failures/errors/skips), including all 10 existing tests and 3 live PostgreSQL/RabbitMQ tests for ID-only publishing/no duplicate publishing, rollback suppression, and successful listener processing. Docker Desktop and the existing containers were started for verification. Test listener startup/type issues were corrected before the successful clean run.
+
+Known delivery limitation: PostgreSQL commit and RabbitMQ publishing are separate operations. A process crash or publish failure after commit can leave a PENDING job without a message; duplicates intentionally do not republish. A publish exception can reach the HTTP caller even though the job was committed. Broker confirms/routing verification and transactional outbox are not implemented yet. Worker failures are discarded from the queue for now and are not automatically recovered.

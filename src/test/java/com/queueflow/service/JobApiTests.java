@@ -23,9 +23,11 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.rabbitmq.listener.simple.auto-startup=false")
 @AutoConfigureMockMvc
 class JobApiTests {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    com.queueflow.messaging.JobProducer producer;
     @Autowired JobService service;
     @Autowired JobRepository repository;
     @Autowired MockMvc mvc;
